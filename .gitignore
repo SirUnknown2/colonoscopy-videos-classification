@@ -1,5 +1,5 @@
 # Log files
-*.txt
+log*.txt
 
 # Windows default autosave extension
 *.asv
