@@ -1,5 +1,5 @@
 % Colonoscopy Lesions Classification
-% Author: Macário Martins <macariomartinsjunior@gmail.com>
+% Author: Macï¿½rio Martins <macariomartinsjunior@gmail.com>
 
 %% Cleaning the workspace
 %
@@ -15,7 +15,7 @@ clc;
 %  Bellow you will find configurations to be used in neural networks. Feel
 %  free to test any configuration you want.
 %
-load('Dataset/LSVT_voice_rehabilitation.mat');
+load('Dataset/gastrointestinal_colonoscopy_lesions_dataset.mat');
 diary(char(strcat('log-', char(datetime('now', 'Format', 'y-M-d-H-m-s')), '.txt')));
 tic;
 
@@ -62,7 +62,7 @@ classes_upper_bound = size(features(:, samples_inds), 2);
 
 for class = 1:classes_num
     classified_samples{class} = find(class_label(samples_inds) == class);
-    
+
     if (size(classified_samples{class}, 2) < classes_upper_bound)
         classes_upper_bound = size(classified_samples{class}, 2);
     end
@@ -158,25 +158,25 @@ kfold_ind = 2;
 for t = 1:trials
     fprintf("Trial %2d/%2d", t, trials);
     fprintf("\n--------------------------");
-    
+
     fprintf("\n\tMLP - LOO: ");
     [accuracy, confusion]            = Validations.LOO(mlp, X, D);
     mlp_accuracies(loo_ind, t)       = accuracy;
     mlp_confusions(:, :, loo_ind, t) = confusion;
     fprintf("%.4f", mlp_accuracies(loo_ind, t));
-    
+
     fprintf("\n\tRBF - LOO: ");
     [accuracy, confusion]            = Validations.LOO(rbf, X, D);
     rbf_accuracies(loo_ind, t)       = accuracy;
     rbf_confusions(:, :, loo_ind, t) = confusion;
     fprintf("%.4f", rbf_accuracies(loo_ind, t));
-    
+
     fprintf("\n\tMLP - %d-Fold: ", k);
     [accuracy, confusion]              = Validations.KFold(mlp, X, D, k);
     mlp_accuracies(kfold_ind, t)       = accuracy;
     mlp_confusions(:, :, kfold_ind, t) = confusion;
     fprintf("%.4f", mlp_accuracies(kfold_ind, t));
-    
+
     fprintf("\n\tRBF - %d-Fold: ", k);
     [accuracy, confusion]              = Validations.KFold(rbf, X, D, k);
     rbf_accuracies(kfold_ind, t)       = accuracy;
@@ -199,4 +199,3 @@ rbf_mean_confusion = mean(rbf_confusions, 4);
 
 toc;
 diary off;
-
