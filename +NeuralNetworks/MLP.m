@@ -4,22 +4,28 @@ function network = MLP(X, D, L, learning_rate, epochs, err)
 %   This function creates a configured MLP Neural Network with the
 %   following parameters:
 %
-%   X   P-by-N matrix of P features and N input vectors
-%   D   R-by-N matrix of R labels and N target class vectors
-%   Q   Row vector of one or more hidden layer sizes.
+%   X                M-by-N matrix of M features and N input vectors
+%   D                1-by-N vector of labels for all N input vectors
+%   L                1-by-P vector of neurons for each layer
+%   learning_rate    The learning rate for the neural network
+%   epochs           Upper bound of epochs for the neural network
+%   err              The target mean square error
 %
 
     network = feedforwardnet(L, 'trainlm');
     
-    network.name                  = 'mlp';
-    network.layers{1}.transferFcn = 'tansig';
-    network.layers{2}.transferFcn = 'tansig';
+    for l = 1:length(network.layers)-1
+        network.layers{l}.transferFcn = 'tansig';
+    end
+    
+    network.layers{length(network.layers)}.transferFcn = 'purelin';
     network.trainParam.lr         = learning_rate;
     network.trainParam.epochs     = epochs;
     network.trainParam.goal       = err;
     network.trainParam.showWindow = false;
     network.trainParam.max_fail   = 1000;
     network.divideFcn             = '';
+    network.name                  = 'mlp';
     
     fprintf("BUILDING MULTI LAYER PERCEPTRON");
     fprintf("\n-------------------------------");
