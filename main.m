@@ -15,7 +15,7 @@ clc;
 %  Bellow you will find configurations to be used in neural networks. Feel
 %  free to test any configuration you want.
 %
-load('Dataset/gastrointestinal_colonoscopy_lesions_dataset.mat');
+load('Dataset/LSVT_voice_rehabilitation.mat');
 diary(char(strcat('log-', char(datetime('now', 'Format', 'y-M-d-H-m-s')), '.txt')));
 tic;
 
@@ -131,7 +131,7 @@ rbf = NeuralNetworks.RBF(X, D, L_rbf, learning_rate, epochs, err);
 %  time to be finished.
 %
 k      = 10; % Use it for k-fold
-trials = 10; % Number of times the validations will be called
+trials = 1; % Number of times the validations will be called
 
 %--------------------------------------------------------------------------
 % Variables bellow store the accuracies for each trial in both LOO and
