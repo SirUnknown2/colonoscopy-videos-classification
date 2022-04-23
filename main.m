@@ -199,3 +199,8 @@ rbf_mean_confusion = mean(rbf_confusions, 4);
 
 toc;
 diary off;
+
+tic;
+mlp = train(mlp, X, D);
+rbf = train(rbf, X, D);
+toc;
