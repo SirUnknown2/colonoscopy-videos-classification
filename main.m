@@ -201,6 +201,6 @@ toc;
 diary off;
 
 tic;
-mlp = train(mlp, X, D);
+[mlp, tr] = train(mlp, X, D);
 rbf = train(rbf, X, D);
 toc;
