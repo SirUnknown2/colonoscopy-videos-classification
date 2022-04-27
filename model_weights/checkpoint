@@ -1,2 +1,2 @@
-model_checkpoint_path: "initial_weights_colonoscopy"
-all_model_checkpoint_paths: "initial_weights_colonoscopy"
+model_checkpoint_path: "initial_weights_voice"
+all_model_checkpoint_paths: "initial_weights_voice"
