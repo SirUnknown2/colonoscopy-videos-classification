@@ -1,0 +1,202 @@
+# %% [code] {"jupyter":{"outputs_hidden":false},"execution":{"iopub.status.busy":"2022-04-27T03:49:13.873292Z","iopub.execute_input":"2022-04-27T03:49:13.873656Z","iopub.status.idle":"2022-04-27T03:49:13.880540Z","shell.execute_reply.started":"2022-04-27T03:49:13.873619Z","shell.execute_reply":"2022-04-27T03:49:13.879538Z"}}
+from tqdm import tqdm
+import pandas as pd
+import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from numpy.linalg import eig
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import InputLayer
+from tensorflow.keras.layers import Activation
+
+# %% [code] {"jupyter":{"outputs_hidden":false},"execution":{"iopub.status.busy":"2022-04-27T03:49:13.909166Z","iopub.execute_input":"2022-04-27T03:49:13.909442Z","iopub.status.idle":"2022-04-27T03:49:13.962808Z","shell.execute_reply.started":"2022-04-27T03:49:13.909412Z","shell.execute_reply":"2022-04-27T03:49:13.961814Z"}}
+data = pd.read_csv("../input/gastrointestinal-lesions/data.txt")
+data = data
+shape = data.shape
+dimension = data.ndim
+data.dtypes
+data.head()
+
+# %% [code] {"jupyter":{"outputs_hidden":false},"execution":{"iopub.status.busy":"2022-04-27T03:49:13.964803Z","iopub.execute_input":"2022-04-27T03:49:13.965135Z","iopub.status.idle":"2022-04-27T03:49:13.999257Z","shell.execute_reply.started":"2022-04-27T03:49:13.965092Z","shell.execute_reply":"2022-04-27T03:49:13.998410Z"}}
+features = pd.read_csv("../input/gastrointestinal-lesions/data.txt")
+features = features.T
+class_label = pd.Series(features.index)
+features.index = range(features.shape[0])
+classes = np.zeros((features.shape[0], 3))
+for i in range(classes.shape[0]):
+    if 'adenoma' in class_label[i]:
+        classes[i,0] = 1.0
+        class_label[i] = 0
+    elif 'serrated' in class_label[i]:
+        classes[i,2] = 1.0
+        class_label[i] = 2
+    else:
+        classes[i,1] = 1.0
+        class_label[i] = 1
+classes = {'adenoma': classes[:,0], 'hyperplasic': classes[:,1], 'serrated': classes[:,2]}
+classes = pd.DataFrame(classes)
+class_label = class_label.astype('int')
+# class1 = [float(i==1) for i in class_label.iloc[:,0]]
+# class2 = [float(i==2) for i in class_label.iloc[:,0]]
+# class_label = class_label.to_numpy().flatten()
+
+# %% [code] {"jupyter":{"outputs_hidden":false},"execution":{"iopub.status.busy":"2022-04-27T03:49:14.000661Z","iopub.execute_input":"2022-04-27T03:49:14.000873Z","iopub.status.idle":"2022-04-27T03:49:14.412366Z","shell.execute_reply.started":"2022-04-27T03:49:14.000847Z","shell.execute_reply":"2022-04-27T03:49:14.411834Z"}}
+features2 = pd.DataFrame({})
+for col in features.columns:
+    if features[col].abs().max()==0:
+        continue
+    features[col] = (features[col] - features[col].mean())/features[col].abs().max()
+features.isnull().values.any()
+#     if features2[col].isnull().values.any():
+#         print(features[col].abs().max())
+# features.index = range(features.shape[0])
+# np.where(features.isnull())
+# print(features.iloc[0,170])
+
+# %% [code] {"jupyter":{"outputs_hidden":false},"execution":{"iopub.status.busy":"2022-04-27T03:49:14.413354Z","iopub.execute_input":"2022-04-27T03:49:14.413661Z","iopub.status.idle":"2022-04-27T03:49:23.190190Z","shell.execute_reply.started":"2022-04-27T03:49:14.413635Z","shell.execute_reply":"2022-04-27T03:49:23.189560Z"}}
+model = Sequential([
+    
+    InputLayer(input_shape=(features.shape[1])),
+    
+    Dense(7, activation='sigmoid'),
+    
+    Dense(5, activation='sigmoid'),
+    
+    Dense(3, activation='sigmoid')
+])
+
+model.compile(optimizer='Adam',
+              loss='binary_crossentropy',
+              metrics=['accuracy']
+             )
+model.fit(features, classes, epochs=500)
+
+# %% [code] {"jupyter":{"outputs_hidden":false},"execution":{"iopub.status.busy":"2022-04-27T03:49:23.191991Z","iopub.execute_input":"2022-04-27T03:49:23.192200Z"}}
+grad_sum = 0
+for col_name in tqdm(features.columns):
+    pointFrame = features.loc[:, features.columns != col_name]
+    for i in features[col_name]:
+        pointFrame[col_name] = i*np.ones(len(features.index))
+        points = tf.Variable(pointFrame, dtype='float')
+        with tf.GradientTape() as tape:
+            pred = model(points, training=False)
+        grads = tape.gradient(pred, points)
+        grad_sum += grads.numpy()
+saliency_order = np.argsort(sum(grad_sum))
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+num_features = 250
+salient_features = features.iloc[:,saliency_order[0:num_features]]
+A = np.zeros((features.shape[0], features.shape[0]))
+for i in features.index:
+    for j in range(i):
+        A[i,j] = np.linalg.norm(salient_features.iloc[i,:] - salient_features.iloc[j,:])
+A = A + np.transpose(A)
+p = np.median(A).astype('int')
+# p = 1.5
+A = (A < p)
+A = A - np.eye(A.shape[0])
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+rows, cols = np.where(A==1)
+edges = zip(rows.tolist(), cols.tolist())
+G = nx.Graph()
+G.add_edges_from(edges, node_size=1)
+color_map = np.array([])
+for node in G:
+    if (class_label[node]==0):
+        color_map = np.append(color_map, 'red')
+    elif (class_label[node]==1):
+        color_map = np.append(color_map, 'blue')
+    else:
+        color_map = np.append(color_map, 'yellow')
+nx.draw(G, node_color=color_map)
+plt.plot()
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+nx.clustering(G) # gives the clustering value of each vertex
+nx.average_clustering(G) # clustering value for the whole graph
+nx.transitivity(G) # 3* number of triangles in G/ number of connected triads in G
+nx.is_connected(G)
+nx.number_connected_components(G) # number of different connected components
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+giant_component = G.subgraph(max(nx.connected_components(G), key=len))
+color_map_GC = np.array([])
+for node in G:
+    if node in giant_component:
+        color_map_GC = np.append(color_map_GC, 'blue')
+    else:
+        color_map_GC = np.append(color_map_GC, 'red')
+nx.draw(G, node_color=color_map_GC)
+plt.plot()
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+nx.eccentricity(giant_component) # largest possible shortest path distance between a vertex and all other vertices
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+nx.diameter(giant_component) # maximum shortest distance between a pair of vertices in G, it is the largest possible eccentricity value of a vertex
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+nx.radius(giant_component) #  minimum eccentricity value of a vertex
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+list(nx.center(giant_component)) # set of nodes whose eccentricity is equal to the radius of G
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+nx.degree_centrality(G) # number of edges incident upon a vertex
+max(nx.degree_centrality(G))
+nx.eigenvector_centrality(G)
+max(nx.eigenvector_centrality(G))
+# katz_centrality_numpy(G, alpha=0.1, beta=1.0, normalized=True, weight=None)
+nx.pagerank(G, 0.1)
+nx.closeness_centrality(G)
+nx.betweenness_centrality(G)
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+import matplotlib.pyplot as plt
+   ...: from sklearn.datasets import make_blobs
+   ...: from sklearn.cluster import KMeans
+   ...: from sklearn.metrics import silhouette_score
+   ...: from sklearn.preprocessing import StandardScaler
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+kmeans = KMeans(
+   ...:     init="random",
+   ...:     n_clusters=3,
+   ...:     n_init=10,
+   ...:     max_iter=300,
+   ...:     random_state=42
+   ...: )
+kmeans.fit(features)
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+kmeans.inertia_ # lowest SSE value
+kmeans.cluster_centers_ # final locations of the centroid
+kmeans.n_iter_ # number of iterations required to converge
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+predicted_label = kmeans.fit_predict(features)
+
+# %% [code] {"_kg_hide-output":true,"jupyter":{"outputs_hidden":false}}
+color_map = np.array([])
+for node in G:
+    if (predicted_label[node]==0):
+        color_map = np.append(color_map, 'red')
+    elif (predicted_label[node]==1):
+        color_map = np.append(color_map, 'blue')
+    else:
+        color_map = np.append(color_map, 'yellow')
+nx.draw(G, node_color=color_map)
+plt.plot()
+
+# %% [code] {"jupyter":{"outputs_hidden":false}}
+wrong = 0
+for node in G:
+    if (class_label[node]!=predicted_label[node]):
+        wrong = wrong + 1
+    else:
+        wrong = wrong
+error = wrong/ len(class_label)
